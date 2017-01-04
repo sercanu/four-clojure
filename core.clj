@@ -1,5 +1,6 @@
 (ns four-clojure.core
-  (:require [proto-repl.saved-values])
+  (:require proto-repl.saved-values
+            clojure.set)
   (:gen-class))
 
 ;; Nothing but the Truth
@@ -165,6 +166,14 @@
 ;; http://www.4clojure.com/problem/27
 (false? (#(= (seq %) (reverse %)) '(1 2 3 4 5)))
 
+;; Flatten a Sequence
+;; http://www.4clojure.com/problem/28
+; from the source
+(= (#(filter (complement sequential?)
+             (rest (tree-seq sequential? seq %))) '((1 2) 3 [4 [5 6]])) '(1 2 3 4 5 6))
+;; or
+(fn c [s] (if (sequential? s) (mapcat c s) [s]))
+
 ;; Get the Caps
 ;; http://www.4clojure.com/problem/29
 (= (#(apply str (re-seq #"[A-Z]+" %)) "HeLlO, WoRlD!") "HLOWRD")
@@ -174,10 +183,19 @@
 (= (apply str (#(->> % (partition-by identity) (map first)) "Leeeeeerrroyyy")) "Leroy")
 ;; (fn [x] (reduce #(if (not= (last %) %2) (conj % %2) %) [] x) )
 
+;; Pack a Sequence
+;; http://www.4clojure.com/problem/31
+(= (#(partition-by identity %) [1 1 2 1 1 1 3 3]) '((1 1) (2) (1 1 1) (3 3)))
+
 ;; Duplicate a Sequence
 ;; http://www.4clojure.com/problem/32
 (= (#(interleave % %) [1 2 3]) '(1 1 2 2 3 3))
 ;; mapcat #(list % %)
+
+;; Replicate a Sequence
+;; http://www.4clojure.com/problem/33
+(= (#(apply concat (map (fn [x] (repeat %2 x)) %)) [1 2 3] 2) '(1 1 2 2 3 3))
+; #(mapcat (partial repeat %2) %1)
 
 ;; Implement range
 ;; http://www.4clojure.com/problem/34
@@ -219,9 +237,50 @@
 (= (#(last (sort %&)) 30 20) 30)
 (= (#(- (apply min (map - %&))) 45 67 11) 67)
 
+;; Interleave Two Seqs
+;; http://www.4clojure.com/problem/39
+(= ((fn [& x] (flatten (apply map vector x))) [1 2 3] [:a :b :c]) '(1 :a 2 :b 3 :c))
+;; #(mapcat list %1 %2)
+;; mapcat vector
+
+;; Interpose a Seq
+;; http://www.4clojure.com/problem/40
+(= ((fn [x y] (butlast (interleave y (repeat (count y) x)))) 0 [1 2 3]) [1 0 2 0 3])
+; #(rest (mapcat list (repeat %1) %2))
+
+;; Drop Every Nth Item
+;; http://www.4clojure.com/problem/41
+(= ((fn [x y] (mapcat
+               #(if (= (count %) y) (butlast %) %)
+               (partition-all y x))) [1 2 3 4 5 6 7 8] 3) [1 2 4 5 7 8])
+; #(mapcat (partial take (dec %2)) (partition-all %2 %1))
+
+
+;; Factorial Fun
+;; http://www.4clojure.com/problem/42
+(= (#(reduce * (range 1 (inc %))) 5) 120)
+
+;; Intro to Iterate
+;; http://www.4clojure.com/problem/45
+(= '(1 4 7 10 13) (take 5 (iterate #(+ 3 %) 1)))
+
+;; Contain Yourself
+;; http://www.4clojure.com/problem/47
+(contains? #{4 5 6} 4)
+
 ;; Intro to some
 ;; http://www.4clojure.com/problem/48
 6
+
+;; Split a sequence
+;; http://www.4clojure.com/problem/49
+(= (#(vector (take % %2) (take-last (- (count %2) %) %2)) 3 [1 2 3 4 5 6]) [[1 2 3] [4 5 6]])
+; (juxt take drop) -- so cool
+; #(vector (take %1 %2) (drop %1 %2))
+
+;; Advanced Destructuring
+;; http://www.4clojure.com/problem/51
+[1 2 3 4 5]
 
 ;; Intro to Destructuring
 ;; http://www.4clojure.com/problem/52
@@ -233,11 +292,45 @@
                    (when (> x 0)
                      (conj (foo (dec x)) x))) 5))
 
+;; Map Construction
+;; http://www.4clojure.com/problem/61
+(= (#(reduce conj (map (fn [x y] {x y}) %1 %2)) [:a :b :c] [1 2 3]) {:a 1, :b 2, :c 3})
+; #(apply hash-map (interleave %1 %2))
+
+;; Re-implement Iterate
+;; http://www.4clojure.com/problem/62
+;qiuxiafei
+(= (take 5 ((fn it [f x]
+              (lazy-seq (cons x (it f (f x))))) #(* 2 %) 1)) [1 2 4 8 16])
+
+;; Group a Sequence
+;; http://www.4clojure.com/problem/63
+(= ((fn [f s]
+      (reduce (fn [agg r]
+                (update-in agg [(f r)] #(if (nil? %) (vector r) (conj % r)))) {} s)) #(> % 5) [1 3 6 8]) {false [1 3], true [6 8]})
+
 ;; Intro to Reduce
 ;; http://www.4clojure.com/problem/64
 (= 15 (reduce + [1 2 3 4 5]))
 (=  0 (reduce + []))
 (=  6 (reduce + 1 [2 3]))
+
+;; Greatest Common Divisor
+;; http://www.4clojure.com/problem/66
+(= ((fn [x y] (let [mi (min x y)
+                    ma (max x y)]
+                (apply max (mapcat #(if (and
+                                         (= (rem x %) 0)
+                                         (= (rem y %) 0))
+                                      [%]
+                                      [1])
+                                   (reverse (range 1 (inc mi))))))) 2 4) 2)
+;; Euclid's method
+(fn gcd [a b]
+  (cond
+    (= a b) a
+    (> a b) (recur (- a b) b)
+    :else (recur a (- b a))))
 
 ;; Recurring Theme
 ;; http://www.4clojure.com/problem/68
@@ -268,6 +361,93 @@
         (reduce +))
    11)
 ;; apply works too
+
+
+;; Set Intersection
+;; http://www.4clojure.com/problem/81
+(= ((fn [x y] (set (filterv #(and (contains? x %) (contains? y %)) (into x y)))) #{0 1 2 3} #{2 3 4 5}) #{2 3})
+; #(set (filter % %2))
+
+
+;; A Half-Truth
+;; http://www.4clojure.com/problem/83
+(= false (#(->> (set %&)
+                count
+                (= 2)) false false))
+
+;; Symmetric Difference
+;; http://www.4clojure.com/problem/88
+(= (#(clojure.set/difference (clojure.set/union % %2) (clojure.set/intersection % %2)) #{1 2 3 4 5 6} #{1 3 5 7}) #{2 4 6 7})
+
+;; Cartesian Product
+;; http://www.4clojure.com/problem/90
+(= ((fn cartez [y x]
+      (set (mapcat (fn [a]
+                     (map #(vec [% a]) y)) x))) #{1 2 3} #{4 5})
+   #{[1 4] [2 4] [3 4] [1 5] [2 5] [3 5]})
+; #(set (for [x % y %2] [x y]))
+
+;; To Tree, or not to Tree
+;; http://www.4clojure.com/problem/95
+(fn istree? [root]
+  (or (nil? root)
+      (and (sequential? root)
+           (= 3 (count root))
+           (every? istree? (rest root)))))
+
+;; Beauty is Symmetry
+;; http://www.4clojure.com/problem/96
+; qiuxiafei
+(fn symmetry [[root left right]]
+  (let [mirror? (fn mirror? [a b]
+                  (cond
+                    (not= (sequential? a) (sequential? b)) false
+                    (sequential? a) (let [[ra La Ra] a
+                                          [rb Lb Rb] b]
+                                      (and (= ra rb) (mirror? La Rb) (mirror? Lb Ra)))
+                    :else (= a b)))])
+  (mirror? left right))
+
+;; Pascal's Triangle
+;; http://www.4clojure.com/problem/97
+(fn [s]
+  (reduce (fn [agg p]
+            (cond
+              (< (count agg) 2) (into agg (vector p))
+              :else (into (into (vector p) (map #(apply + %) (partition 2 1 agg))) (vector p))))
+          [] (repeat s 1)))
+(defn pascal [x]
+  (mapv (fn [[x y]] (+ x y)) (partition 2 1 (into [0] (into x [0])))))
+(defn solve [p]
+  (map #(println (clojure.string/join " " %)) (take p (iterate pascal [1]))))
+(solve 5)
+
+;; Product Digits
+;; http://www.4clojure.com/problem/99
+(= ((fn [a b] (map #(Integer/parseInt (str %))  (str (* a b)))) 1 1) [1])
+; #(map (comp read-string str) (str (* % %2)))
+
+;; Least Common Multiple
+;; http://www.4clojure.com/problem/100
+;Sonia Hamilton
+(fn lcm3
+  ([x y
+    (letfn [(gcd2 [a b]
+              (cond
+                (= b 0) a
+                (> a b) (gcd2 b (mod a b))
+                (> b a) (gcd2 a (mod b a))))]
+      (/ (* x y) (gcd2 x y)))])
+  ([x y & rest] (apply lcm3 (lcm3 x y) rest)))
+
+;; Simple closures
+;; http://www.4clojure.com/problem/107
+(= 256 (((fn [y] (fn [x] (int (Math/pow x y)))) 2) 16)
+   (((fn [y] (fn [x] (int (Math/pow x y)))) 8) 2))
+
+;; Through the Looking Class
+;; http://www.4clojure.com/problem/126
+Class
 
 ;; A nil key
 ;; http://www.4clojure.com/problem/134
@@ -311,3 +491,26 @@
 (clojure.set/subset? #{1} #{1 2})
 (clojure.set/superset? #{1 2} #{1 2})
 (clojure.set/subset? #{1 2} #{1 2})
+
+;; Comparisons
+;; http://www.4clojure.com/problem/166
+(= :gt ((fn [f x y] (cond
+                      (f x y) :lt
+                      (f y x) :gt
+                      :else :eq)) < 5 1))
+
+;;****************
+
+
+(defn binary-tree? [[root left right & more]]
+  (cond
+    (sequential? root) false
+    (some nil? [root left right]) false
+    (not (nil? more)) false
+    (every? #(or (not (sequential? %))
+                 (and (= 3 (count %))
+                      (binary-tree? %)))
+            [left right]) true
+    :else false))
+
+(binary-tree? [1 2 [1 2 3]])
