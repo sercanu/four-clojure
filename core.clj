@@ -260,9 +260,19 @@
 ;; http://www.4clojure.com/problem/42
 (= (#(reduce * (range 1 (inc %))) 5) 120)
 
+;; Reverse Interleave
+;; http://www.4clojure.com/problem/43
+(defn ri [v p]
+  (vals (group-by #(mod (.indexOf v %) p) v)))
+;#(apply map list (partition %2 %1))
+
 ;; Intro to Iterate
 ;; http://www.4clojure.com/problem/45
 (= '(1 4 7 10 13) (take 5 (iterate #(+ 3 %) 1)))
+
+;; Flipping out
+;; http://www.4clojure.com/problem/46
+;#(fn [a b] (% b a))
 
 ;; Contain Yourself
 ;; http://www.4clojure.com/problem/47
@@ -277,6 +287,10 @@
 (= (#(vector (take % %2) (take-last (- (count %2) %) %2)) 3 [1 2 3 4 5 6]) [[1 2 3] [4 5 6]])
 ; (juxt take drop) -- so cool
 ; #(vector (take %1 %2) (drop %1 %2))
+
+;; Split by Type
+;; http://www.4clojure.com/problem/50
+;#(vals (group-by type %))
 
 ;; Advanced Destructuring
 ;; http://www.4clojure.com/problem/51
@@ -332,6 +346,17 @@
     (> a b) (recur (- a b) b)
     :else (recur a (- b a))))
 
+;; Prime Numbers
+;; http://www.4clojure.com/problem/67
+(defn p [n]
+  (take n (filter
+           (fn is-prime [n]
+             (nil?
+              (some
+               #(zero? (mod n %))
+               (range 2 n))))
+           (range 2 1000))))
+
 ;; Recurring Theme
 ;; http://www.4clojure.com/problem/68
 (= [7 6 5 4 3]
@@ -362,6 +387,13 @@
    11)
 ;; apply works too
 
+;; Anagram Finder
+;; http://www.4clojure.com/problem/77
+(defn t [v]
+  (into #{}
+        (map set
+             (filter #(> (count %) 1)
+                     (map val (group-by sort v))))))
 
 ;; Set Intersection
 ;; http://www.4clojure.com/problem/81
@@ -398,15 +430,15 @@
 ;; Beauty is Symmetry
 ;; http://www.4clojure.com/problem/96
 ; qiuxiafei
-(fn symmetry [[root left right]]
+(defn symmetry [[root left right]]
   (let [mirror? (fn mirror? [a b]
                   (cond
                     (not= (sequential? a) (sequential? b)) false
                     (sequential? a) (let [[ra La Ra] a
                                           [rb Lb Rb] b]
                                       (and (= ra rb) (mirror? La Rb) (mirror? Lb Ra)))
-                    :else (= a b)))])
-  (mirror? left right))
+                    :else (= a b)))]
+    (mirror? left right)))
 
 ;; Pascal's Triangle
 ;; http://www.4clojure.com/problem/97
@@ -430,20 +462,32 @@
 ;; Least Common Multiple
 ;; http://www.4clojure.com/problem/100
 ;Sonia Hamilton
-(fn lcm3
-  ([x y
-    (letfn [(gcd2 [a b]
-              (cond
-                (= b 0) a
-                (> a b) (gcd2 b (mod a b))
-                (> b a) (gcd2 a (mod b a))))]
-      (/ (* x y) (gcd2 x y)))])
+(defn lcm3
+  ([x y]
+   (letfn [(gcd2 [a b]
+             (cond
+               (= b 0) a
+               (> a b) (gcd2 b (mod a b))
+               (> b a) (gcd2 a (mod b a))))]
+     (/ (* x y) (gcd2 x y))))
   ([x y & rest] (apply lcm3 (lcm3 x y) rest)))
 
 ;; Simple closures
 ;; http://www.4clojure.com/problem/107
 (= 256 (((fn [y] (fn [x] (int (Math/pow x y)))) 2) 16)
    (((fn [y] (fn [x] (int (Math/pow x y)))) 8) 2))
+
+;; Re-implement Map
+;; http://www.4clojure.com/problem/118
+(defn my-map [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (cons (f (first s)) (my-map f (rest s))))))
+
+;; Read a binary number
+;; http://www.4clojure.com/problem/122
+(defn to-dec [s]
+  (reduce + (map #(* (Integer. (str %1)) (Math/pow 2 (Integer. (str %2)))) s (reverse (range (count s))))))
 
 ;; Through the Looking Class
 ;; http://www.4clojure.com/problem/126
@@ -454,6 +498,19 @@ Class
 (true?  (#(and (contains? %2 %1) (nil? (%1 %2))) :a {:a nil :b 2}))
 (false? (#(nil? (%1 %2 :not-found)) :b {:a nil :b 2}))
 (false? (#((comp boolean (set %2)) [%1 nil]) :c {:a nil :b 2})) ; interesting :)
+
+;; Infix Calculator
+;; http://www.4clojure.com/problem/135
+(defn calc [x & more]
+  (if-not (empty? more)
+    (recur ((first more) x (second more)) (drop 2 more))
+    x))
+
+;; dot product
+;; http://www.4clojure.com/problem/143
+(defn dot-p [v1 v2]
+  (->> (map * v1 v2)
+       (reduce +)))
 
 ;; For the win
 ;; http://www.4clojure.com/problem/145
@@ -474,6 +531,12 @@ Class
 (= (#(zipmap %2 (repeat %)) "x" [1 2 3]) {1 "x" 2 "x" 3 "x"})
 (= (#(apply hash-map (interleave %2 (repeat %1))) [:a :b] [:foo :bar]) {:foo [:a :b] :bar [:a :b]})
 ;; (into {} (#(for [v %2] (hash-map v %1)) 0 [:a :b :c]))
+
+;; Indexing Sequences
+;;http://www.4clojure.com/problem/157
+(defn my-index [v]
+  (mapv #(vector %1 %2) v (range (count v))))
+;#(map vector % (range))
 
 ;; Logical falsity and truth
 ;; http://www.4clojure.com/problem/162
@@ -500,17 +563,3 @@ Class
                       :else :eq)) < 5 1))
 
 ;;****************
-
-
-(defn binary-tree? [[root left right & more]]
-  (cond
-    (sequential? root) false
-    (some nil? [root left right]) false
-    (not (nil? more)) false
-    (every? #(or (not (sequential? %))
-                 (and (= 3 (count %))
-                      (binary-tree? %)))
-            [left right]) true
-    :else false))
-
-(binary-tree? [1 2 [1 2 3]])
