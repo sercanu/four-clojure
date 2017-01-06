@@ -484,6 +484,14 @@
    (when-let [s (seq coll)]
      (cons (f (first s)) (my-map f (rest s))))))
 
+;; Sum of square of digits
+;; http://www.4clojure.com/problem/120
+(fn [xs]
+  (count (filter (fn [x]
+                   (let [nums (mapv #(Integer. (str %)) (str x))
+                         sums (reduce + (map #(* % %) nums))]
+                     (if (< x sums) x))) xs)))
+
 ;; Read a binary number
 ;; http://www.4clojure.com/problem/122
 (defn to-dec [s]
